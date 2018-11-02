@@ -3,12 +3,14 @@
 open System
 open System.IO
 
-open Microsoft.ML.Runtime.Api;
-open Microsoft.ML.Legacy;
-open Microsoft.ML.Legacy.Models;
-open Microsoft.ML.Legacy.Data;
-open Microsoft.ML.Legacy.Transforms;
-open Microsoft.ML.Legacy.Trainers;
+open Microsoft.ML.Runtime.Api
+open Microsoft.ML.Data
+
+open Microsoft.ML.Data
+open Microsoft.ML.Transforms
+open Microsoft.ML.Trainers
+open Microsoft.ML.Runtime.Data
+open Microsoft.ML.Runtime.Learners
 
 [<CLIMutable>]
 type SentimentData =
@@ -46,13 +48,30 @@ let TestDataPath = Path.Combine(AppPath, "datasets", "sentiment-yelp-test.txt")
 let modelPath = Path.Combine(AppPath, "SentimentModel.zip")
 
 let TrainAsync() =
-    // LearningPipeline holds all steps of the learning process: data, transforms, learners.  
-    let pipeline = LearningPipeline()
+    // LocalEnvironment holds all steps of the learning process: data, transforms, learners.  
+    use env = new LocalEnvironment()
 
     // The TextLoader loads a dataset. The schema of the dataset is specified by passing a class containing
     // all the column names and their types.
-    pipeline.Add(TextLoader(TrainDataPath).CreateFrom<SentimentData>())
+    //pipeline.Add(TextLoader(TrainDataPath).CreateFrom<SentimentData>())
+    let col1 = new TextLoader.Column("Label", Nullable DataKind.Bool  , 0)
+    let col2 = new TextLoader.Column("Text", Nullable DataKind.Text  , 1)
+    //col1.
+    
+    let textLoaderArgs = new TextLoader.Arguments()
+    textLoaderArgs.Separator <- "tab"
+    textLoaderArgs.HasHeader <- true
+    textLoaderArgs.Column <- [|col1 ; col2|] 
 
+    let reader = new TextLoader(env, textLoaderArgs)
+
+
+    //Load training data
+    let trainingDataView = reader.Read(new MultiFileSource(TrainDataPath))
+
+    let pipeline = new TextTransform(env, "Text", "Features")
+        pipeline.Append
+        .env, new LinearClassificationTrainer.Arguments(), "Text", "Features")
     // TextFeaturizer is a transform that will be used to featurize an input column to format and clean the data.
     pipeline.Add(TextFeaturizer("Features", "SentimentText"))
 
